@@ -15,6 +15,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS recipes (
     id TEXT PRIMARY KEY,
     slug TEXT NOT NULL UNIQUE,
+    category TEXT,
     name TEXT NOT NULL,
     summary TEXT,
     instructions TEXT NOT NULL,
@@ -51,6 +52,13 @@ db.exec(`
     UPDATE recipes SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
   END;
 `);
+
+const recipeColumns = db.prepare("PRAGMA table_info(recipes)").all();
+const hasCategory = recipeColumns.some((column) => column.name === "category");
+
+if (!hasCategory) {
+  db.exec("ALTER TABLE recipes ADD COLUMN category TEXT");
+}
 
 db.close();
 

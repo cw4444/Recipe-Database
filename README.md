@@ -69,6 +69,42 @@ That opens the terminal in the correct folder.
 
 You can also use `Command Prompt` or `Windows Terminal` if you prefer.
 
+Important:
+
+This app is inside the `recipe-db` folder, not the folder above it.
+
+So if your files are here:
+
+`C:\Users\YourName\CascadeProjects\codex-27032026\recipe-db`
+
+Then PowerShell must be opened in the `recipe-db` folder itself.
+
+The PowerShell line should end like this before you run any `npm` command:
+
+```powershell
+PS C:\Users\YourName\CascadeProjects\codex-27032026\recipe-db>
+```
+
+If it only ends at:
+
+```powershell
+PS C:\Users\YourName\CascadeProjects\codex-27032026>
+```
+
+then you are still one folder too high.
+
+If that happens, type:
+
+```powershell
+cd .\recipe-db
+```
+
+or use the full path:
+
+```powershell
+cd C:\Users\YourName\CascadeProjects\codex-27032026\recipe-db
+```
+
 ## First-Time Setup
 
 You only need to do this once.
@@ -76,6 +112,7 @@ You only need to do this once.
 Type these commands one at a time and press `Enter` after each one:
 
 ```powershell
+cd C:\Users\YourName\CascadeProjects\codex-27032026\recipe-db
 npm install
 npm run db:setup
 ```
@@ -106,6 +143,7 @@ This is useful because it shows how one recipe can point to another recipe.
 Whenever you want to use it, open PowerShell in the project folder and run:
 
 ```powershell
+cd C:\Users\YourName\CascadeProjects\codex-27032026\recipe-db
 npm run dev
 ```
 
@@ -171,6 +209,22 @@ Then press `Y` and `Enter` if it asks.
 ### If `npm` is not recognised
 
 That usually means Node.js is not installed, or the computer needs restarting after installation.
+
+### If `npm install` says it cannot find `package.json`
+
+You are almost certainly in the wrong folder.
+
+Move into the `recipe-db` folder first:
+
+```powershell
+cd C:\Users\YourName\CascadeProjects\codex-27032026\recipe-db
+```
+
+Then run:
+
+```powershell
+npm install
+```
 
 ### If the browser page does not open
 

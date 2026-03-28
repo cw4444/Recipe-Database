@@ -1,20 +1,64 @@
 import { RecipeCard } from "@/components/recipe-card";
 import { RecipeForm } from "@/components/recipe-form";
-import { getRecipeOptions, getRecipes } from "@/lib/recipes";
+import { RecipeSidebar } from "@/components/recipe-sidebar";
+import {
+  getCategories,
+  getRecipeBySlug,
+  getRecipeOptions,
+  getRecipes,
+} from "@/lib/recipes";
 
-export default async function Home() {
-  const [recipes, recipeOptions] = await Promise.all([getRecipes(), getRecipeOptions()]);
-  const recipeMap = new Map(recipes.map((recipe) => [recipe.id, recipe]));
+type SearchParams = Promise<{
+  category?: string;
+  recipe?: string;
+  mode?: string;
+}>;
+
+export default async function Home(props: { searchParams: SearchParams }) {
+  const searchParams = await props.searchParams;
+  const [recipes, recipeOptions, categories] = await Promise.all([
+    getRecipes(),
+    getRecipeOptions(),
+    getCategories(),
+  ]);
+
+  const currentCategory = searchParams.category?.trim() || "All";
+  const filteredRecipes =
+    currentCategory === "All"
+      ? recipes
+      : recipes.filter((recipe) => recipe.category === currentCategory);
+
+  const requestedRecipeSlug = searchParams.recipe?.trim() || "";
+  const selectedRecipe =
+    filteredRecipes.find((recipe) => recipe.slug === requestedRecipeSlug) ??
+    filteredRecipes[0] ??
+    null;
+
+  const mode = searchParams.mode === "edit" ? "edit" : searchParams.mode === "new" ? "new" : "";
+  const recipeToEdit = mode === "edit" && requestedRecipeSlug ? getRecipeBySlug(requestedRecipeSlug) : null;
+  const showBlankNewForm = mode === "new";
+  const cancelHref = selectedRecipe
+    ? `/?${new URLSearchParams(
+        Object.fromEntries(
+          Object.entries({
+            category: currentCategory !== "All" ? currentCategory : "",
+            recipe: selectedRecipe.slug,
+          }).filter(([, value]) => value),
+        ),
+      ).toString()}`
+    : currentCategory !== "All"
+      ? `/?category=${encodeURIComponent(currentCategory)}`
+      : "/";
 
   return (
     <main className="page-shell">
       <section className="hero panel">
         <div>
           <p className="eyebrow">Recipe Graph</p>
-          <h1>A proper recipe database for sauces, fillings, bases, and finished dishes.</h1>
+          <h1>A recipe database with proper categories and reusable sub-recipes.</h1>
           <p className="hero-copy">
-            Store recipes as building blocks, then reuse them inside larger dishes without
-            duplicating everything by hand.
+            Browse by category on the left, open one recipe at a time, and link smaller
+            recipes into larger dishes without duplicating everything.
           </p>
         </div>
 
@@ -24,8 +68,8 @@ export default async function Home() {
             <span>recipes saved</span>
           </div>
           <div>
-            <strong>{recipes.reduce((total, recipe) => total + recipe.ingredients.length, 0)}</strong>
-            <span>ingredient rows</span>
+            <strong>{categories.length}</strong>
+            <span>categories</span>
           </div>
           <div>
             <strong>{recipes.reduce((total, recipe) => total + recipe._count.usedIn, 0)}</strong>
@@ -34,35 +78,44 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="workspace-grid">
-        <RecipeForm recipeOptions={recipeOptions} />
+      <section className="app-grid">
+        <RecipeSidebar
+          categories={categories}
+          currentCategory={currentCategory}
+          currentRecipeSlug={selectedRecipe?.slug ?? ""}
+          recipes={filteredRecipes.map((recipe) => ({
+            id: recipe.id,
+            name: recipe.name,
+            slug: recipe.slug,
+            category: recipe.category,
+          }))}
+        />
 
-        <section className="panel">
-          <div className="panel-heading">
-            <p className="eyebrow">Recipe Library</p>
-            <h2>Browse the graph.</h2>
-            <p className="muted">
-              Linked recipes are expanded inline so you can see how a finished dish depends on
-              the smaller components beneath it.
-            </p>
-          </div>
+        <div className="content-stack">
+          {!showBlankNewForm && selectedRecipe ? (
+            <RecipeCard recipe={selectedRecipe} categoryFilter={currentCategory} />
+          ) : null}
 
-          {recipes.length === 0 ? (
-            <div className="empty-state">
-              <h3>No recipes yet.</h3>
+          {!showBlankNewForm && !selectedRecipe ? (
+            <section className="panel empty-state">
+              <h2>No recipe selected.</h2>
               <p>
-                Add a base recipe first, then create a bigger dish that links back to it.
-                Bechamel, ragu, pesto, pastry cream, and curry paste are all perfect starters.
+                Pick one from the list on the left, or add a new one to get started.
               </p>
-            </div>
-          ) : (
-            <div className="recipe-stack">
-              {recipes.map((recipe) => (
-                <RecipeCard key={recipe.id} recipe={recipe} recipeMap={recipeMap} />
-              ))}
-            </div>
-          )}
-        </section>
+            </section>
+          ) : null}
+
+          {mode === "new" || recipeToEdit ? (
+            <RecipeForm
+              key={recipeToEdit ? `edit-${recipeToEdit.id}` : `new-${currentCategory}`}
+              recipeOptions={recipeOptions}
+              categories={categories}
+              initialRecipe={recipeToEdit}
+              selectedCategory={currentCategory !== "All" ? currentCategory : ""}
+              cancelHref={cancelHref}
+            />
+          ) : null}
+        </div>
       </section>
     </main>
   );

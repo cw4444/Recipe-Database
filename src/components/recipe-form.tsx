@@ -1,14 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { submitRecipeAction, type RecipeActionState } from "@/app/actions";
-
-type RecipeOption = {
-  id: string;
-  name: string;
-  slug: string;
-};
+import type { RecipeOption, RecipeWithIngredients } from "@/lib/recipes";
 
 type IngredientRow = {
   id: string;
@@ -21,6 +17,10 @@ type IngredientRow = {
 
 type RecipeFormProps = {
   recipeOptions: RecipeOption[];
+  categories: string[];
+  initialRecipe?: RecipeWithIngredients | null;
+  selectedCategory?: string;
+  cancelHref?: string;
 };
 
 const emptyRow = (): IngredientRow => ({
@@ -32,104 +32,34 @@ const emptyRow = (): IngredientRow => ({
   linkedRecipeId: "",
 });
 
-export function RecipeForm({ recipeOptions }: RecipeFormProps) {
-  const [state, setState] = useState<RecipeActionState>({ status: "idle", revision: 0 });
-  const [resetVersion, setResetVersion] = useState(0);
-  const [pending, startTransition] = useTransition();
-  const formRef = useRef<HTMLFormElement>(null);
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-
-    startTransition(async () => {
-      const result = await submitRecipeAction(formData);
-      setState(result);
-
-      if (result.status === "success") {
-        form.reset();
-        setResetVersion((current) => current + 1);
-      }
-    });
+function buildInitialRows(initialRecipe?: RecipeWithIngredients | null) {
+  if (!initialRecipe) {
+    return [emptyRow(), emptyRow()];
   }
 
-  return (
-    <form className="panel form-shell" onSubmit={handleSubmit} ref={formRef}>
-      <div className="panel-heading">
-        <p className="eyebrow">Add Recipe</p>
-        <h2>Build dishes out of ingredients and other recipes.</h2>
-        <p className="muted">
-          Start with base recipes like bechamel, pesto, stock, or pastry, then
-          link them into bigger dishes.
-        </p>
-      </div>
-
-      <div className="field-grid">
-        <label className="field">
-          <span>Name</span>
-          <input name="name" placeholder="Bechamel sauce" required minLength={2} />
-        </label>
-
-        <label className="field">
-          <span>Servings</span>
-          <input name="servings" type="number" min="1" placeholder="4" />
-        </label>
-
-        <label className="field">
-          <span>Prep Minutes</span>
-          <input name="prepMinutes" type="number" min="0" placeholder="10" />
-        </label>
-
-        <label className="field">
-          <span>Cook Minutes</span>
-          <input name="cookMinutes" type="number" min="0" placeholder="15" />
-        </label>
-      </div>
-
-      <label className="field">
-        <span>Quick Summary</span>
-        <input
-          name="summary"
-          placeholder="Creamy white sauce used in lasagne, pies, and gratins."
-        />
-      </label>
-
-      <label className="field">
-        <span>Instructions</span>
-        <textarea
-          name="instructions"
-          rows={6}
-          minLength={10}
-          placeholder="Melt the butter, whisk in the flour, then add milk gradually..."
-          required
-        />
-      </label>
-
-      <IngredientEditor key={resetVersion} recipeOptions={recipeOptions} />
-
-      <div className="form-footer">
-        <div className="status-copy">
-          <p className="muted">
-            Tip: if a row links to another recipe, keep the ingredient name human-friendly.
-          </p>
-          {state.message ? (
-            <p className={state.status === "error" ? "error-text" : "success-text"}>
-              {state.message}
-            </p>
-          ) : null}
-        </div>
-        <button className="primary-button" type="submit" disabled={pending}>
-          {pending ? "Saving..." : "Save recipe"}
-        </button>
-      </div>
-    </form>
-  );
+  return initialRecipe.ingredients.length > 0
+    ? initialRecipe.ingredients.map((ingredient) => ({
+        id: ingredient.id,
+        label: ingredient.label,
+        quantity: ingredient.quantity ?? "",
+        unit: ingredient.unit ?? "",
+        notes: ingredient.notes ?? "",
+        linkedRecipeId: ingredient.linkedRecipeId ?? "",
+      }))
+    : [emptyRow()];
 }
 
-function IngredientEditor({ recipeOptions }: RecipeFormProps) {
-  const [rows, setRows] = useState<IngredientRow[]>([emptyRow(), emptyRow()]);
+export function RecipeForm({
+  recipeOptions,
+  categories,
+  initialRecipe,
+  selectedCategory,
+  cancelHref = "/",
+}: RecipeFormProps) {
+  const router = useRouter();
+  const [state, setState] = useState<RecipeActionState>({ status: "idle", revision: 0 });
+  const [pending, startTransition] = useTransition();
+  const [rows, setRows] = useState<IngredientRow[]>(() => buildInitialRows(initialRecipe));
 
   const serialisedIngredients = useMemo(
     () =>
@@ -145,8 +75,117 @@ function IngredientEditor({ recipeOptions }: RecipeFormProps) {
     [rows],
   );
 
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    startTransition(async () => {
+      const result = await submitRecipeAction(formData);
+      setState(result);
+
+      if (result.status === "success" && result.redirectTo) {
+        router.push(result.redirectTo);
+        router.refresh();
+      }
+    });
+  }
+
   return (
-    <>
+    <form className="panel form-shell" onSubmit={handleSubmit}>
+      <div className="panel-heading">
+        <p className="eyebrow">{initialRecipe ? "Edit Recipe" : "Add Recipe"}</p>
+        <h2>{initialRecipe ? `Update ${initialRecipe.name}` : "Add a new recipe or sub-recipe."}</h2>
+        <p className="muted">
+          Use categories for browsing, then link smaller recipes into larger dishes.
+        </p>
+      </div>
+
+      {initialRecipe ? <input name="recipeId" type="hidden" value={initialRecipe.id} /> : null}
+
+      <div className="field-grid">
+        <label className="field">
+          <span>Name</span>
+          <input
+            defaultValue={initialRecipe?.name ?? ""}
+            name="name"
+            placeholder="Recipe name"
+            required
+            minLength={2}
+          />
+        </label>
+
+        <label className="field">
+          <span>Category</span>
+          <select
+            defaultValue={initialRecipe?.category ?? selectedCategory ?? ""}
+            name="category"
+          >
+            <option value="">Choose a category</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Servings</span>
+          <input
+            defaultValue={initialRecipe?.servings ?? ""}
+            name="servings"
+            type="number"
+            min="1"
+            placeholder="e.g. 4"
+          />
+        </label>
+
+        <label className="field">
+          <span>Prep Minutes</span>
+          <input
+            defaultValue={initialRecipe?.prepMinutes ?? ""}
+            name="prepMinutes"
+            type="number"
+            min="0"
+            placeholder="e.g. 15"
+          />
+        </label>
+
+        <label className="field">
+          <span>Cook Minutes</span>
+          <input
+            defaultValue={initialRecipe?.cookMinutes ?? ""}
+            name="cookMinutes"
+            type="number"
+            min="0"
+            placeholder="e.g. 45"
+          />
+        </label>
+      </div>
+
+      <label className="field">
+        <span>Quick Summary</span>
+        <input
+          defaultValue={initialRecipe?.summary ?? ""}
+          name="summary"
+          placeholder="Short description of the recipe"
+        />
+      </label>
+
+      <label className="field">
+        <span>Instructions</span>
+        <textarea
+          defaultValue={initialRecipe?.instructions ?? ""}
+          name="instructions"
+          rows={6}
+          minLength={10}
+          placeholder="Write the method here"
+          required
+        />
+      </label>
+
       <div className="ingredient-editor">
         <div className="section-row">
           <div>
@@ -161,6 +200,10 @@ function IngredientEditor({ recipeOptions }: RecipeFormProps) {
             Add row
           </button>
         </div>
+
+        <p className="inline-tip">
+          Need to create a sub-recipe first? Save it separately, then come back and link it here.
+        </p>
 
         <div className="ingredient-list">
           {rows.map((row, index) => (
@@ -185,13 +228,11 @@ function IngredientEditor({ recipeOptions }: RecipeFormProps) {
                   <span>Ingredient Name</span>
                   <input
                     value={row.label}
-                    placeholder="Whole milk"
+                    placeholder="Ingredient name"
                     onChange={(event) =>
                       setRows((current) =>
                         current.map((item) =>
-                          item.id === row.id
-                            ? { ...item, label: event.target.value }
-                            : item,
+                          item.id === row.id ? { ...item, label: event.target.value } : item,
                         ),
                       )
                     }
@@ -202,13 +243,11 @@ function IngredientEditor({ recipeOptions }: RecipeFormProps) {
                   <span>Quantity</span>
                   <input
                     value={row.quantity}
-                    placeholder="500"
+                    placeholder="Amount"
                     onChange={(event) =>
                       setRows((current) =>
                         current.map((item) =>
-                          item.id === row.id
-                            ? { ...item, quantity: event.target.value }
-                            : item,
+                          item.id === row.id ? { ...item, quantity: event.target.value } : item,
                         ),
                       )
                     }
@@ -219,13 +258,11 @@ function IngredientEditor({ recipeOptions }: RecipeFormProps) {
                   <span>Unit</span>
                   <input
                     value={row.unit}
-                    placeholder="ml"
+                    placeholder="Unit"
                     onChange={(event) =>
                       setRows((current) =>
                         current.map((item) =>
-                          item.id === row.id
-                            ? { ...item, unit: event.target.value }
-                            : item,
+                          item.id === row.id ? { ...item, unit: event.target.value } : item,
                         ),
                       )
                     }
@@ -247,11 +284,13 @@ function IngredientEditor({ recipeOptions }: RecipeFormProps) {
                     }
                   >
                     <option value="">Plain ingredient</option>
-                    {recipeOptions.map((recipe) => (
-                      <option key={recipe.id} value={recipe.id}>
-                        {recipe.name}
-                      </option>
-                    ))}
+                    {recipeOptions
+                      .filter((recipe) => recipe.id !== initialRecipe?.id)
+                      .map((recipe) => (
+                        <option key={recipe.id} value={recipe.id}>
+                          {recipe.name}
+                        </option>
+                      ))}
                   </select>
                 </label>
               </div>
@@ -260,7 +299,7 @@ function IngredientEditor({ recipeOptions }: RecipeFormProps) {
                 <span>Notes</span>
                 <input
                   value={row.notes}
-                  placeholder="Warm first if using for sauce"
+                  placeholder="Optional notes"
                   onChange={(event) =>
                     setRows((current) =>
                       current.map((item) =>
@@ -276,6 +315,27 @@ function IngredientEditor({ recipeOptions }: RecipeFormProps) {
       </div>
 
       <input name="ingredients" type="hidden" value={serialisedIngredients} readOnly />
-    </>
+
+      <div className="form-footer">
+        <div className="status-copy">
+          <p className="muted">
+            Linked rows behave like reusable building blocks for bigger recipes.
+          </p>
+          {state.message ? (
+            <p className={state.status === "error" ? "error-text" : "success-text"}>
+              {state.message}
+            </p>
+          ) : null}
+        </div>
+        <div className="form-actions">
+          <a className="ghost-link" href={cancelHref}>
+            Cancel
+          </a>
+          <button className="primary-button" type="submit" disabled={pending}>
+            {pending ? "Saving..." : initialRecipe ? "Update recipe" : "Save recipe"}
+          </button>
+        </div>
+      </div>
+    </form>
   );
 }

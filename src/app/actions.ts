@@ -2,12 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 
-import { createRecipe, linkedRecipesExist, type IngredientInput } from "@/lib/recipes";
+import {
+  createRecipe,
+  deleteRecipe,
+  linkedRecipesExist,
+  updateRecipe,
+  type IngredientInput,
+} from "@/lib/recipes";
 
 export type RecipeActionState = {
   status: "idle" | "success" | "error";
   message?: string;
   revision: number;
+  redirectTo?: string;
 };
 
 function parseOptionalNumber(value: FormDataEntryValue | null) {
@@ -19,9 +26,22 @@ function parseOptionalNumber(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function buildRecipePath(slug: string, category?: string) {
+  const params = new URLSearchParams();
+  params.set("recipe", slug);
+
+  if (category?.trim()) {
+    params.set("category", category.trim());
+  }
+
+  return `/?${params.toString()}`;
+}
+
 export async function submitRecipeAction(formData: FormData): Promise<RecipeActionState> {
   try {
+    const recipeId = formData.get("recipeId");
     const name = formData.get("name");
+    const category = formData.get("category");
     const summary = formData.get("summary");
     const instructions = formData.get("instructions");
     const ingredientsJson = formData.get("ingredients");
@@ -84,26 +104,39 @@ export async function submitRecipeAction(formData: FormData): Promise<RecipeActi
       .map((ingredient) => ingredient.linkedRecipeId)
       .filter((value): value is string => Boolean(value));
 
-    if (!linkedRecipesExist(linkedRecipeIds)) {
+    const resolvedRecipeId = typeof recipeId === "string" && recipeId.trim() ? recipeId : undefined;
+
+    if (!linkedRecipesExist(linkedRecipeIds, resolvedRecipeId)) {
       return {
         status: "error",
-        message: "One of the linked recipes no longer exists.",
+        message: "A recipe cannot link to itself, and every linked recipe must exist.",
         revision: Date.now(),
       };
     }
 
-    createRecipe({
+    const input = {
       name: name.trim(),
+      category: typeof category === "string" ? category.trim() : undefined,
       summary: typeof summary === "string" && summary.trim() ? summary.trim() : undefined,
       instructions: instructions.trim(),
       servings: parseOptionalNumber(formData.get("servings")),
       prepMinutes: parseOptionalNumber(formData.get("prepMinutes")),
       cookMinutes: parseOptionalNumber(formData.get("cookMinutes")),
       ingredients: cleanedIngredients,
-    });
+    };
+
+    const saved = resolvedRecipeId
+      ? updateRecipe({ id: resolvedRecipeId, ...input })
+      : createRecipe(input);
 
     revalidatePath("/");
-    return { status: "success", message: "Recipe saved.", revision: Date.now() };
+
+    return {
+      status: "success",
+      message: resolvedRecipeId ? "Recipe updated." : "Recipe saved.",
+      revision: Date.now(),
+      redirectTo: buildRecipePath(saved.slug, input.category),
+    };
   } catch {
     return {
       status: "error",
@@ -111,4 +144,24 @@ export async function submitRecipeAction(formData: FormData): Promise<RecipeActi
       revision: Date.now(),
     };
   }
+}
+
+export async function deleteRecipeAction(recipeId: string, category?: string) {
+  const deleted = deleteRecipe(recipeId);
+
+  revalidatePath("/");
+
+  if (!deleted) {
+    return {
+      status: "error" as const,
+      message: "That recipe could not be found.",
+      redirectTo: category?.trim() ? `/?category=${encodeURIComponent(category)}` : "/",
+    };
+  }
+
+  return {
+    status: "success" as const,
+    message: "Recipe deleted.",
+    redirectTo: category?.trim() ? `/?category=${encodeURIComponent(category)}` : "/",
+  };
 }

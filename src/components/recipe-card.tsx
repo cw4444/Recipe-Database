@@ -1,10 +1,9 @@
+import { DeleteRecipeButton } from "@/components/delete-recipe-button";
 import type { RecipeWithIngredients } from "@/lib/recipes";
 
 type RecipeCardProps = {
   recipe: RecipeWithIngredients;
-  recipeMap: Map<string, RecipeWithIngredients>;
-  depth?: number;
-  trail?: string[];
+  categoryFilter: string;
 };
 
 function formatMeta(label: string, value?: number | null) {
@@ -15,21 +14,29 @@ function formatMeta(label: string, value?: number | null) {
   return `${value} ${label}`;
 }
 
-export function RecipeCard({
-  recipe,
-  recipeMap,
-  depth = 0,
-  trail = [],
-}: RecipeCardProps) {
-  const nextTrail = [...trail, recipe.id];
-  const isNested = depth > 0;
+function buildPath(recipeSlug: string, categoryFilter: string, mode?: string) {
+  const params = new URLSearchParams();
 
+  if (categoryFilter && categoryFilter !== "All") {
+    params.set("category", categoryFilter);
+  }
+
+  params.set("recipe", recipeSlug);
+
+  if (mode) {
+    params.set("mode", mode);
+  }
+
+  return `/?${params.toString()}`;
+}
+
+export function RecipeCard({ recipe, categoryFilter }: RecipeCardProps) {
   return (
-    <article className={`recipe-card ${isNested ? "recipe-card-nested" : ""}`} id={recipe.slug}>
+    <article className="panel recipe-detail-card" id={recipe.slug}>
       <div className="recipe-header">
         <div>
-          <p className="eyebrow">{isNested ? "Sub-Recipe" : "Recipe"}</p>
-          <h3>{recipe.name}</h3>
+          <p className="eyebrow">{recipe.category ?? "Unsorted recipe"}</p>
+          <h2>{recipe.name}</h2>
           {recipe.summary ? <p className="muted">{recipe.summary}</p> : null}
         </div>
 
@@ -47,9 +54,22 @@ export function RecipeCard({
         </div>
       </div>
 
+      <div className="recipe-toolbar">
+        <a className="secondary-button toolbar-link" href={`/?mode=new`}>
+          Add another recipe
+        </a>
+        <a
+          className="secondary-button toolbar-link"
+          href={buildPath(recipe.slug, categoryFilter, "edit")}
+        >
+          Edit recipe
+        </a>
+        <DeleteRecipeButton recipeId={recipe.id} category={categoryFilter} />
+      </div>
+
       <div className="recipe-body">
         <section>
-          <h4>Ingredients</h4>
+          <h3>Ingredients</h3>
           <ul className="ingredient-output">
             {recipe.ingredients.map((ingredient) => (
               <li key={ingredient.id}>
@@ -62,7 +82,10 @@ export function RecipeCard({
                 {ingredient.notes ? <p className="muted">{ingredient.notes}</p> : null}
                 {ingredient.linkedRecipe ? (
                   <p className="linked-recipe-note">
-                    Pulls from <a href={`#${ingredient.linkedRecipe.slug}`}>{ingredient.linkedRecipe.name}</a>
+                    Sub-recipe:{" "}
+                    <a href={buildPath(ingredient.linkedRecipe.slug, categoryFilter)}>
+                      {ingredient.linkedRecipe.name}
+                    </a>
                   </p>
                 ) : null}
               </li>
@@ -71,7 +94,7 @@ export function RecipeCard({
         </section>
 
         <section>
-          <h4>Method</h4>
+          <h3>Method</h3>
           <div className="instructions">
             {recipe.instructions.split(/\n+/).map((step, index) => (
               <p key={`${recipe.id}-${index}`}>{step}</p>
@@ -79,40 +102,6 @@ export function RecipeCard({
           </div>
         </section>
       </div>
-
-      {depth < 2 ? (
-        <div className="nested-recipes">
-          {recipe.ingredients
-            .map((ingredient) => ingredient.linkedRecipeId)
-            .filter((value): value is string => Boolean(value))
-            .filter((value, index, current) => current.indexOf(value) === index)
-            .map((linkedRecipeId) => {
-              if (nextTrail.includes(linkedRecipeId)) {
-                return (
-                  <p className="muted" key={`${recipe.id}-${linkedRecipeId}`}>
-                    Nested recipe loop skipped to avoid recursive display.
-                  </p>
-                );
-              }
-
-              const linkedRecipe = recipeMap.get(linkedRecipeId);
-
-              if (!linkedRecipe) {
-                return null;
-              }
-
-              return (
-                <RecipeCard
-                  key={linkedRecipe.id}
-                  recipe={linkedRecipe}
-                  recipeMap={recipeMap}
-                  depth={depth + 1}
-                  trail={nextTrail}
-                />
-              );
-            })}
-        </div>
-      ) : null}
     </article>
   );
 }

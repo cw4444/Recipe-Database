@@ -18,8 +18,18 @@ if (hasRecipes) {
 }
 
 const insertRecipe = db.prepare(`
-  INSERT INTO recipes (id, slug, name, summary, instructions, servings, prep_minutes, cook_minutes)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  INSERT INTO recipes (
+    id,
+    slug,
+    name,
+    category,
+    summary,
+    instructions,
+    servings,
+    prep_minutes,
+    cook_minutes
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 const insertIngredient = db.prepare(`
@@ -45,6 +55,7 @@ db.transaction(() => {
     bechamelId,
     "bechamel-sauce",
     "Bechamel Sauce",
+    "Sauces",
     "A creamy white sauce you can reuse in lasagne, pies, and gratins.",
     "Melt the butter in a saucepan.\nWhisk in the flour and cook for 1 minute.\nAdd the milk a little at a time, whisking well.\nCook until smooth and thick, then season with salt, pepper, and nutmeg.",
     4,
@@ -74,6 +85,7 @@ db.transaction(() => {
     raguId,
     "ragu",
     "Ragu",
+    "Italian",
     "A slow-cooked meat sauce for pasta bakes and lasagne.",
     "Soften the onion, carrot, and celery in oil.\nAdd the mince and cook until browned.\nStir in tomato puree, chopped tomatoes, and seasoning.\nSimmer gently until rich and thick.",
     6,
@@ -106,6 +118,7 @@ db.transaction(() => {
     lasagneId,
     "lasagne",
     "Lasagne",
+    "Italian",
     "An example of a recipe that is made from other recipes.",
     "Make the ragu and bechamel first.\nLayer ragu, pasta sheets, and bechamel in a baking dish.\nRepeat the layers and finish with cheese.\nBake until bubbling and golden.",
     6,
