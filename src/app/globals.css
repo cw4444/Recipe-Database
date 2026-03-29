@@ -122,6 +122,55 @@ a {
   gap: 1.5rem;
 }
 
+.pantry-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.stock-form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.stock-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.pantry-button {
+  justify-self: start;
+}
+
+.stock-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.stock-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 252, 247, 0.75);
+}
+
+.stock-item-low {
+  border-color: rgba(164, 51, 23, 0.26);
+  background: rgba(244, 213, 202, 0.46);
+}
+
+.stock-meta {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: end;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .panel-heading {
   display: grid;
   gap: 0.45rem;
@@ -469,7 +518,8 @@ a {
 
   .hero-stats,
   .field-grid,
-  .ingredient-grid {
+  .ingredient-grid,
+  .stock-grid {
     grid-template-columns: 1fr;
   }
 

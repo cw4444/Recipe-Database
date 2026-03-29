@@ -8,9 +8,14 @@ import { deleteRecipeAction } from "@/app/actions";
 type DeleteRecipeButtonProps = {
   recipeId: string;
   category?: string | null;
+  mainIngredient?: string | null;
 };
 
-export function DeleteRecipeButton({ recipeId, category }: DeleteRecipeButtonProps) {
+export function DeleteRecipeButton({
+  recipeId,
+  category,
+  mainIngredient,
+}: DeleteRecipeButtonProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -25,7 +30,11 @@ export function DeleteRecipeButton({ recipeId, category }: DeleteRecipeButtonPro
         }
 
         startTransition(async () => {
-          const result = await deleteRecipeAction(recipeId, category ?? undefined);
+          const result = await deleteRecipeAction(
+            recipeId,
+            category ?? undefined,
+            mainIngredient ?? undefined,
+          );
           router.push(result.redirectTo);
           router.refresh();
         });

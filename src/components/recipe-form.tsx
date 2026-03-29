@@ -18,6 +18,7 @@ type IngredientRow = {
 type RecipeFormProps = {
   recipeOptions: RecipeOption[];
   categories: string[];
+  mainIngredients: string[];
   initialRecipe?: RecipeWithIngredients | null;
   selectedCategory?: string;
   cancelHref?: string;
@@ -52,6 +53,7 @@ function buildInitialRows(initialRecipe?: RecipeWithIngredients | null) {
 export function RecipeForm({
   recipeOptions,
   categories,
+  mainIngredients,
   initialRecipe,
   selectedCategory,
   cancelHref = "/",
@@ -126,6 +128,21 @@ export function RecipeForm({
             {categories.map((category) => (
               <option key={category} value={category}>
                 {category}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Main Ingredient</span>
+          <select
+            defaultValue={initialRecipe?.mainIngredient ?? ""}
+            name="mainIngredient"
+          >
+            <option value="">Choose an ingredient</option>
+            {mainIngredients.map((mainIngredient) => (
+              <option key={mainIngredient} value={mainIngredient}>
+                {mainIngredient}
               </option>
             ))}
           </select>

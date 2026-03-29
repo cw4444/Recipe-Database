@@ -16,6 +16,7 @@ db.exec(`
     id TEXT PRIMARY KEY,
     slug TEXT NOT NULL UNIQUE,
     category TEXT,
+    main_ingredient TEXT,
     name TEXT NOT NULL,
     summary TEXT,
     instructions TEXT NOT NULL,
@@ -45,19 +46,43 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_linked_recipe
     ON recipe_ingredients (linked_recipe_id);
 
+  CREATE TABLE IF NOT EXISTS stock_items (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    unit TEXT,
+    on_hand REAL NOT NULL DEFAULT 0,
+    low_stock_threshold REAL NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_stock_items_name_unit
+    ON stock_items (name, unit);
+
   CREATE TRIGGER IF NOT EXISTS recipes_set_updated_at
   AFTER UPDATE ON recipes
   FOR EACH ROW
   BEGIN
     UPDATE recipes SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
   END;
+
+  CREATE TRIGGER IF NOT EXISTS stock_items_set_updated_at
+  AFTER UPDATE ON stock_items
+  FOR EACH ROW
+  BEGIN
+    UPDATE stock_items SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+  END;
 `);
 
 const recipeColumns = db.prepare("PRAGMA table_info(recipes)").all();
 const hasCategory = recipeColumns.some((column) => column.name === "category");
+const hasMainIngredient = recipeColumns.some((column) => column.name === "main_ingredient");
 
 if (!hasCategory) {
   db.exec("ALTER TABLE recipes ADD COLUMN category TEXT");
+}
+
+if (!hasMainIngredient) {
+  db.exec("ALTER TABLE recipes ADD COLUMN main_ingredient TEXT");
 }
 
 db.close();

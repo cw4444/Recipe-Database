@@ -6,16 +6,27 @@ import type { RecipeOption } from "@/lib/recipes";
 
 type RecipeSidebarProps = {
   categories: string[];
+  mainIngredients: string[];
   currentCategory: string;
+  currentMainIngredient: string;
   currentRecipeSlug: string;
   recipes: RecipeOption[];
 };
 
-function buildPath(category: string, recipe?: string, mode?: string) {
+function buildPath(
+  category: string,
+  mainIngredient: string,
+  recipe?: string,
+  mode?: string,
+) {
   const params = new URLSearchParams();
 
   if (category && category !== "All") {
     params.set("category", category);
+  }
+
+  if (mainIngredient && mainIngredient !== "All") {
+    params.set("ingredient", mainIngredient);
   }
 
   if (recipe) {
@@ -32,7 +43,9 @@ function buildPath(category: string, recipe?: string, mode?: string) {
 
 export function RecipeSidebar({
   categories,
+  mainIngredients,
   currentCategory,
+  currentMainIngredient,
   currentRecipeSlug,
   recipes,
 }: RecipeSidebarProps) {
@@ -50,7 +63,7 @@ export function RecipeSidebar({
         <span>Category</span>
         <select
           value={currentCategory}
-          onChange={(event) => router.push(buildPath(event.target.value))}
+          onChange={(event) => router.push(buildPath(event.target.value, currentMainIngredient))}
         >
           <option value="All">All</option>
           {categories.map((category) => (
@@ -61,7 +74,25 @@ export function RecipeSidebar({
         </select>
       </label>
 
-      <a className="primary-button sidebar-button" href={buildPath(currentCategory, undefined, "new")}>
+      <label className="field">
+        <span>Main Ingredient</span>
+        <select
+          value={currentMainIngredient}
+          onChange={(event) => router.push(buildPath(currentCategory, event.target.value))}
+        >
+          <option value="All">All</option>
+          {mainIngredients.map((mainIngredient) => (
+            <option key={mainIngredient} value={mainIngredient}>
+              {mainIngredient}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <a
+        className="primary-button sidebar-button"
+        href={buildPath(currentCategory, currentMainIngredient, undefined, "new")}
+      >
         Add recipe
       </a>
 
@@ -73,10 +104,12 @@ export function RecipeSidebar({
             <a
               key={recipe.id}
               className={`recipe-nav-item ${currentRecipeSlug === recipe.slug ? "recipe-nav-item-active" : ""}`}
-              href={buildPath(currentCategory, recipe.slug)}
+              href={buildPath(currentCategory, currentMainIngredient, recipe.slug)}
             >
               <strong>{recipe.name}</strong>
-              <span>{recipe.category ?? "Unsorted"}</span>
+              <span>
+                {[recipe.category ?? "Unsorted", recipe.mainIngredient ?? "Any ingredient"].join(" · ")}
+              </span>
             </a>
           ))
         )}

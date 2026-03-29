@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 
 import {
+  addOrRestockStockItem,
+  consumeRecipeStock,
+} from "@/lib/pantry";
+import {
   createRecipe,
   deleteRecipe,
   linkedRecipesExist,
@@ -26,12 +30,16 @@ function parseOptionalNumber(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function buildRecipePath(slug: string, category?: string) {
+function buildRecipePath(slug: string, category?: string, mainIngredient?: string) {
   const params = new URLSearchParams();
   params.set("recipe", slug);
 
   if (category?.trim()) {
     params.set("category", category.trim());
+  }
+
+  if (mainIngredient?.trim()) {
+    params.set("ingredient", mainIngredient.trim());
   }
 
   return `/?${params.toString()}`;
@@ -42,6 +50,7 @@ export async function submitRecipeAction(formData: FormData): Promise<RecipeActi
     const recipeId = formData.get("recipeId");
     const name = formData.get("name");
     const category = formData.get("category");
+    const mainIngredient = formData.get("mainIngredient");
     const summary = formData.get("summary");
     const instructions = formData.get("instructions");
     const ingredientsJson = formData.get("ingredients");
@@ -117,6 +126,8 @@ export async function submitRecipeAction(formData: FormData): Promise<RecipeActi
     const input = {
       name: name.trim(),
       category: typeof category === "string" ? category.trim() : undefined,
+      mainIngredient:
+        typeof mainIngredient === "string" ? mainIngredient.trim() : undefined,
       summary: typeof summary === "string" && summary.trim() ? summary.trim() : undefined,
       instructions: instructions.trim(),
       servings: parseOptionalNumber(formData.get("servings")),
@@ -135,7 +146,7 @@ export async function submitRecipeAction(formData: FormData): Promise<RecipeActi
       status: "success",
       message: resolvedRecipeId ? "Recipe updated." : "Recipe saved.",
       revision: Date.now(),
-      redirectTo: buildRecipePath(saved.slug, input.category),
+      redirectTo: buildRecipePath(saved.slug, input.category, input.mainIngredient),
     };
   } catch {
     return {
@@ -146,8 +157,24 @@ export async function submitRecipeAction(formData: FormData): Promise<RecipeActi
   }
 }
 
-export async function deleteRecipeAction(recipeId: string, category?: string) {
+export async function deleteRecipeAction(
+  recipeId: string,
+  category?: string,
+  mainIngredient?: string,
+) {
   const deleted = deleteRecipe(recipeId);
+
+  const params = new URLSearchParams();
+
+  if (category?.trim()) {
+    params.set("category", category.trim());
+  }
+
+  if (mainIngredient?.trim()) {
+    params.set("ingredient", mainIngredient.trim());
+  }
+
+  const redirectTo = params.toString() ? `/?${params.toString()}` : "/";
 
   revalidatePath("/");
 
@@ -155,13 +182,77 @@ export async function deleteRecipeAction(recipeId: string, category?: string) {
     return {
       status: "error" as const,
       message: "That recipe could not be found.",
-      redirectTo: category?.trim() ? `/?category=${encodeURIComponent(category)}` : "/",
+      redirectTo,
     };
   }
 
+    return {
+      status: "success" as const,
+      message: "Recipe deleted.",
+      redirectTo,
+    };
+}
+
+export async function addStockItemAction(formData: FormData) {
+  const name = formData.get("stockName");
+  const unit = formData.get("stockUnit");
+  const amount = parseOptionalNumber(formData.get("stockAmount"));
+  const lowStockThreshold = parseOptionalNumber(formData.get("lowStockThreshold"));
+
+  if (typeof name !== "string" || name.trim().length < 2) {
+    return {
+      status: "error" as const,
+      message: "Stock item name needs at least 2 characters.",
+    };
+  }
+
+  if (amount === undefined || amount <= 0) {
+    return {
+      status: "error" as const,
+      message: "Enter a stock amount greater than 0.",
+    };
+  }
+
+  addOrRestockStockItem({
+    name: name.trim(),
+    unit: typeof unit === "string" ? unit.trim() : undefined,
+    amount,
+    lowStockThreshold,
+  });
+
+  revalidatePath("/");
+
   return {
     status: "success" as const,
-    message: "Recipe deleted.",
-    redirectTo: category?.trim() ? `/?category=${encodeURIComponent(category)}` : "/",
+    message: "Stock updated.",
   };
+}
+
+export async function makeRecipeAction(recipeId: string) {
+  try {
+    const result = consumeRecipeStock(recipeId);
+    revalidatePath("/");
+
+    const summaryParts = [`Updated ${result.consumedCount} stock item(s).`];
+
+    if (result.lowStock.length > 0) {
+      summaryParts.push(`Running low: ${result.lowStock.join(", ")}.`);
+    }
+
+    if (result.unmatched.length > 0) {
+      summaryParts.push(
+        `Could not deduct: ${result.unmatched.slice(0, 4).join(", ")}${result.unmatched.length > 4 ? "..." : ""}.`,
+      );
+    }
+
+    return {
+      status: "success" as const,
+      message: summaryParts.join(" "),
+    };
+  } catch {
+    return {
+      status: "error" as const,
+      message: "Could not update stock for that recipe.",
+    };
+  }
 }

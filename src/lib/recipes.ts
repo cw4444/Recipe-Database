@@ -17,11 +17,30 @@ export const CATEGORY_OPTIONS = [
   "Basics",
 ] as const;
 
+export const INGREDIENT_OPTIONS = [
+  "Beef",
+  "Pork",
+  "Chicken",
+  "Fish",
+  "Lamb",
+  "Rice",
+  "Pasta",
+  "Vegetables",
+  "Cheese",
+  "Beans",
+  "Potatoes",
+  "Bread",
+  "Fruit",
+  "Chocolate",
+  "Eggs",
+] as const;
+
 type RecipeRow = {
   id: string;
   slug: string;
   name: string;
   category: string | null;
+  main_ingredient: string | null;
   summary: string | null;
   instructions: string;
   servings: number | null;
@@ -49,6 +68,7 @@ export type RecipeWithIngredients = {
   slug: string;
   name: string;
   category: string | null;
+  mainIngredient: string | null;
   summary: string | null;
   instructions: string;
   servings: number | null;
@@ -80,6 +100,15 @@ export type RecipeOption = {
   name: string;
   slug: string;
   category: string | null;
+  mainIngredient: string | null;
+};
+
+type RecipeOptionRow = {
+  id: string;
+  name: string;
+  slug: string;
+  category: string | null;
+  main_ingredient: string | null;
 };
 
 export type IngredientInput = {
@@ -94,6 +123,7 @@ export type RecipeInput = {
   id?: string;
   name: string;
   category?: string;
+  mainIngredient?: string;
   summary?: string;
   instructions: string;
   servings?: number;
@@ -113,6 +143,11 @@ function slugify(value: string) {
 
 function normaliseCategory(category?: string | null) {
   const cleaned = category?.trim();
+  return cleaned ? cleaned : null;
+}
+
+function normaliseMainIngredient(mainIngredient?: string | null) {
+  const cleaned = mainIngredient?.trim();
   return cleaned ? cleaned : null;
 }
 
@@ -148,6 +183,7 @@ function mapRecipes(recipes: RecipeRow[], ingredients: IngredientRow[]) {
     slug: recipe.slug,
     name: recipe.name,
     category: recipe.category,
+    mainIngredient: recipe.main_ingredient,
     summary: recipe.summary,
     instructions: recipe.instructions,
     servings: recipe.servings,
@@ -201,15 +237,23 @@ export function getRecipeBySlug(slug: string) {
 }
 
 export function getRecipeOptions(): RecipeOption[] {
-  return db
+  const rows = db
     .prepare(
       `
-        SELECT id, name, slug, category
+        SELECT id, name, slug, category, main_ingredient
         FROM recipes
         ORDER BY name COLLATE NOCASE ASC
       `,
     )
-    .all() as RecipeOption[];
+    .all() as RecipeOptionRow[];
+
+  return rows.map((recipe) => ({
+    id: recipe.id,
+    name: recipe.name,
+    slug: recipe.slug,
+    category: recipe.category,
+    mainIngredient: recipe.main_ingredient,
+  }));
 }
 
 export function getCategories() {
@@ -227,6 +271,23 @@ export function getCategories() {
   const stored = categoryRows.map((row) => row.category);
 
   return Array.from(new Set([...CATEGORY_OPTIONS, ...stored]));
+}
+
+export function getMainIngredients() {
+  const ingredientRows = db
+    .prepare(
+      `
+        SELECT DISTINCT main_ingredient
+        FROM recipes
+        WHERE main_ingredient IS NOT NULL AND TRIM(main_ingredient) <> ''
+        ORDER BY main_ingredient COLLATE NOCASE ASC
+      `,
+    )
+    .all() as Array<{ main_ingredient: string }>;
+
+  const stored = ingredientRows.map((row) => row.main_ingredient);
+
+  return Array.from(new Set([...INGREDIENT_OPTIONS, ...stored]));
 }
 
 export function linkedRecipesExist(ids: string[], excludeRecipeId?: string) {
@@ -293,13 +354,14 @@ export function createRecipe(input: RecipeInput) {
       slug,
       name,
       category,
+      main_ingredient,
       summary,
       instructions,
       servings,
       prep_minutes,
       cook_minutes
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertIngredient = db.prepare(`
@@ -322,6 +384,7 @@ export function createRecipe(input: RecipeInput) {
       slug,
       input.name,
       normaliseCategory(input.category),
+      normaliseMainIngredient(input.mainIngredient),
       input.summary ?? null,
       input.instructions,
       input.servings ?? null,
@@ -368,7 +431,7 @@ export function updateRecipe(input: RecipeInput & { id: string }) {
 
   const updateRecipeStatement = db.prepare(`
     UPDATE recipes
-    SET slug = ?, name = ?, category = ?, summary = ?, instructions = ?,
+    SET slug = ?, name = ?, category = ?, main_ingredient = ?, summary = ?, instructions = ?,
         servings = ?, prep_minutes = ?, cook_minutes = ?
     WHERE id = ?
   `);
@@ -394,6 +457,7 @@ export function updateRecipe(input: RecipeInput & { id: string }) {
       slug,
       input.name,
       normaliseCategory(input.category),
+      normaliseMainIngredient(input.mainIngredient),
       input.summary ?? null,
       input.instructions,
       input.servings ?? null,

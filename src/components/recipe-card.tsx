@@ -1,9 +1,11 @@
 import { DeleteRecipeButton } from "@/components/delete-recipe-button";
+import { MakeRecipeButton } from "@/components/make-recipe-button";
 import type { RecipeWithIngredients } from "@/lib/recipes";
 
 type RecipeCardProps = {
   recipe: RecipeWithIngredients;
   categoryFilter: string;
+  ingredientFilter: string;
 };
 
 function formatMeta(label: string, value?: number | null) {
@@ -14,11 +16,20 @@ function formatMeta(label: string, value?: number | null) {
   return `${value} ${label}`;
 }
 
-function buildPath(recipeSlug: string, categoryFilter: string, mode?: string) {
+function buildPath(
+  recipeSlug: string,
+  categoryFilter: string,
+  ingredientFilter: string,
+  mode?: string,
+) {
   const params = new URLSearchParams();
 
   if (categoryFilter && categoryFilter !== "All") {
     params.set("category", categoryFilter);
+  }
+
+  if (ingredientFilter && ingredientFilter !== "All") {
+    params.set("ingredient", ingredientFilter);
   }
 
   params.set("recipe", recipeSlug);
@@ -30,7 +41,7 @@ function buildPath(recipeSlug: string, categoryFilter: string, mode?: string) {
   return `/?${params.toString()}`;
 }
 
-export function RecipeCard({ recipe, categoryFilter }: RecipeCardProps) {
+export function RecipeCard({ recipe, categoryFilter, ingredientFilter }: RecipeCardProps) {
   return (
     <article className="panel recipe-detail-card" id={recipe.slug}>
       <div className="recipe-header">
@@ -50,21 +61,38 @@ export function RecipeCard({ recipe, categoryFilter }: RecipeCardProps) {
           {formatMeta("min cook", recipe.cookMinutes) ? (
             <span>{formatMeta("min cook", recipe.cookMinutes)}</span>
           ) : null}
+          {recipe.mainIngredient ? <span>{recipe.mainIngredient}</span> : null}
           <span>{recipe._count.usedIn} parent recipe(s)</span>
         </div>
       </div>
 
       <div className="recipe-toolbar">
-        <a className="secondary-button toolbar-link" href={`/?mode=new`}>
+        <MakeRecipeButton recipeId={recipe.id} />
+        <a
+          className="secondary-button toolbar-link"
+          href={`/?${new URLSearchParams(
+            Object.fromEntries(
+              Object.entries({
+                category: categoryFilter !== "All" ? categoryFilter : "",
+                ingredient: ingredientFilter !== "All" ? ingredientFilter : "",
+                mode: "new",
+              }).filter(([, value]) => value),
+            ),
+          ).toString()}`}
+        >
           Add another recipe
         </a>
         <a
           className="secondary-button toolbar-link"
-          href={buildPath(recipe.slug, categoryFilter, "edit")}
+          href={buildPath(recipe.slug, categoryFilter, ingredientFilter, "edit")}
         >
           Edit recipe
         </a>
-        <DeleteRecipeButton recipeId={recipe.id} category={categoryFilter} />
+        <DeleteRecipeButton
+          recipeId={recipe.id}
+          category={categoryFilter}
+          mainIngredient={ingredientFilter}
+        />
       </div>
 
       <div className="recipe-body">
@@ -83,7 +111,13 @@ export function RecipeCard({ recipe, categoryFilter }: RecipeCardProps) {
                 {ingredient.linkedRecipe ? (
                   <p className="linked-recipe-note">
                     Sub-recipe:{" "}
-                    <a href={buildPath(ingredient.linkedRecipe.slug, categoryFilter)}>
+                    <a
+                      href={buildPath(
+                        ingredient.linkedRecipe.slug,
+                        categoryFilter,
+                        ingredientFilter,
+                      )}
+                    >
                       {ingredient.linkedRecipe.name}
                     </a>
                   </p>
