@@ -83,7 +83,7 @@ The PowerShell line should end like this before you run any `npm` command:
 
 ```powershell
 PS C:\Users\YourName\CascadeProjects\codex-27032026\recipe-db>
-```
+```  
 
 If it only ends at:
 
