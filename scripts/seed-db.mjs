@@ -5,7 +5,6 @@ import Database from "better-sqlite3";
 
 const databasePath = path.join(process.cwd(), "data", "recipes.db");
 const db = new Database(databasePath);
-
 db.pragma("foreign_keys = ON");
 
 const hasRecipes =

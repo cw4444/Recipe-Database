@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-
+import type { IngredientInput } from "@/lib/recipes";
 import {
   addOrRestockStockItem,
   consumeRecipeStock,
@@ -11,7 +11,6 @@ import {
   deleteRecipe,
   linkedRecipesExist,
   updateRecipe,
-  type IngredientInput,
 } from "@/lib/recipes";
 
 export type RecipeActionState = {
@@ -186,11 +185,11 @@ export async function deleteRecipeAction(
     };
   }
 
-    return {
-      status: "success" as const,
-      message: "Recipe deleted.",
-      redirectTo,
-    };
+  return {
+    status: "success" as const,
+    message: "Recipe deleted.",
+    redirectTo,
+  };
 }
 
 export async function addStockItemAction(formData: FormData) {
