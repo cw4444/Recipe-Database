@@ -274,9 +274,3 @@ npm run dev
 - Node.js
 
 You do not need to learn those to use the app.
-
-## License
-
-This project is proprietary. You may not use, copy, modify, redistribute, deploy, or install it for commercial or client use without prior written permission.
-
-Commercial licenses are available. For business use, professional installation, or deployment enquiries, contact me
